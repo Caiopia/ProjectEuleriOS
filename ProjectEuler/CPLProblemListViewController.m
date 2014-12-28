@@ -12,6 +12,7 @@
 
 #define kProblemCell @"ProblemCell"
 #define kProblemHeader @"ProblemHeader"
+#define kCollectionViewPadding 10
 
 @interface CPLProblemListViewController ()
 <UICollectionViewDelegate,
@@ -41,8 +42,6 @@ UICollectionViewDelegateFlowLayout>
     [self.problemCollectionView registerClass:[UICollectionReusableView class]
                    forSupplementaryViewOfKind:UICollectionElementKindSectionHeader
                           withReuseIdentifier:kProblemHeader];
-    UICollectionViewFlowLayout *collectionViewLayout = (UICollectionViewFlowLayout *)self.problemCollectionView.collectionViewLayout;
-    collectionViewLayout.sectionInset = UIEdgeInsetsMake(25, 10, 20, 10);
 }
 
 - (void)didReceiveMemoryWarning
@@ -87,8 +86,8 @@ UICollectionViewDelegateFlowLayout>
     if (!_problemCollectionView) {
         UICollectionViewFlowLayout *flowLayout = [[UICollectionViewFlowLayout alloc] init];
         [flowLayout setScrollDirection:UICollectionViewScrollDirectionVertical];
-        [flowLayout setMinimumLineSpacing:10];
-        [flowLayout setMinimumInteritemSpacing:10];
+        [flowLayout setMinimumLineSpacing:kCollectionViewPadding];
+        [flowLayout setMinimumInteritemSpacing:kCollectionViewPadding];
         [flowLayout setHeaderReferenceSize:CGSizeMake(self.view.bounds.size.width, 50)];
 
         _problemCollectionView = [[UICollectionView alloc] initWithFrame:self.view.bounds collectionViewLayout:flowLayout];
@@ -154,34 +153,20 @@ UICollectionViewDelegateFlowLayout>
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath
 {
     // Add activity indicator
-    __block CPLProblemCell *selectedCell = (CPLProblemCell *)[collectionView cellForItemAtIndexPath:indexPath];
-    selectedCell.label.hidden = YES;
-    UIActivityIndicatorView *activityIndicatorView = [[UIActivityIndicatorView alloc] initWithFrame:selectedCell.label.frame];
-    [activityIndicatorView setActivityIndicatorViewStyle:UIActivityIndicatorViewStyleGray];
-    NSInteger activityTag = 3675376;
-    [activityIndicatorView setTag:activityTag];
-    [activityIndicatorView startAnimating];
-    [selectedCell.contentView addSubview:activityIndicatorView];
+    CPLProblemCell *selectedCell = (CPLProblemCell *)[collectionView cellForItemAtIndexPath:indexPath];
+    [selectedCell showActivityIndicator];
     
     __weak CPLProblemListViewController *weakSelf = self;
     CPLProblemParser *problemParser = [[CPLProblemParser alloc] init];
     [problemParser grabProblemWithNumberString:[self.problemArray objectAtIndex:indexPath.row]
                                                     success:^(NSString *response){
-                                                        
-                                                        // Remove activity indicator
-                                                        for (UIView *subView in [selectedCell.contentView subviews]) {
-                                                            if (subView.tag == activityTag) {
-                                                                [subView removeFromSuperview];
-                                                                break;
-                                                            }
-                                                        }
-                                                        
-                                                        selectedCell.label.hidden = NO;
-                                                        
+                                                        [selectedCell hideActivityIndicator];
                                                         [weakSelf openProblemView:response];
                                                     }
                                                     failure:^(NSError *error) {
                                                         NSLog(@"%@", error);
+                                                        [selectedCell hideActivityIndicator];
+                                                        [weakSelf grabNumberError:error];
                                                     }];
     problemParser = nil;
 }
@@ -196,20 +181,43 @@ UICollectionViewDelegateFlowLayout>
     [alert show];
 }
 
+- (void)grabNumberError:(NSError *)error
+{
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Error fetching problem"
+                                                    message:[error description]
+                                                   delegate:nil
+                                          cancelButtonTitle:@"Ok"
+                                          otherButtonTitles:nil];
+    [alert show];
+}
+
 #pragma mark UICollectionViewDelegateFlowLayout
 
 - (CGSize)collectionView:(UICollectionView *)collectionView
                   layout:(UICollectionViewLayout *)collectionViewLayout
   sizeForItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    return CGSizeMake(90,90);
+    CGRect screenRect = [[UIScreen mainScreen] bounds];
+    NSInteger screenWidth = screenRect.size.width;
+    NSInteger numberOfTilesPerRow = 4;
+    return CGSizeMake((screenWidth-(numberOfTilesPerRow+1)*kCollectionViewPadding)/numberOfTilesPerRow,
+                      (screenWidth-(numberOfTilesPerRow+1)*kCollectionViewPadding)/numberOfTilesPerRow);
 }
 
 - (UIEdgeInsets)collectionView:(UICollectionView *)collectionView
                         layout:(UICollectionViewLayout *)collectionViewLayout
         insetForSectionAtIndex:(NSInteger)section
 {
-    return UIEdgeInsetsMake(10, 10, 10, 10);
+    return UIEdgeInsetsMake(kCollectionViewPadding,
+                            kCollectionViewPadding,
+                            kCollectionViewPadding,
+                            kCollectionViewPadding);
+}
+
+- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+    [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
+    [self.problemCollectionView.collectionViewLayout invalidateLayout];
 }
 
 @end

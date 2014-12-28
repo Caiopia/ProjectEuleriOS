@@ -13,5 +13,7 @@
 @property (nonatomic, strong) UILabel *label;
 
 - (void)setProblemNumber:(NSString *)text;
+- (void)showActivityIndicator;
+- (void)hideActivityIndicator;
 
 @end
